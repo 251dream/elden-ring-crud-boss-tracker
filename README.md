@@ -1,7 +1,7 @@
 # ⚔🌙 Elden Ring Boss Tracker
 
 <p align="center">
-  <img src="docs/logo.png" alt="Elden Ring Boss Tracker Logo" width="450">
+  <img src="docs/logo.png" alt="Elden Ring Boss Tracker Logo" width="670">
 </p>
 
 > **This project is still under active development.** Features are being added, refined, and polished. Expect improvements, and feel free to contribute ideas.
