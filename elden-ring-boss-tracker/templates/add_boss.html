@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Add Encounter — Elden Ring Boss Tracker{% endblock %}
+{% block body_class %}page-scrollable{% endblock %}
+{% block breadcrumb %}
+<a href="{{ url_for('index') }}">Realm</a> <span>›</span>
+<a href="{{ url_for('boss_list') }}">Bestiary</a> <span>›</span>
+<span>New Encounter</span>
+{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-page-header">
+    <h1 class="page-title">Mark New Encounter</h1>
+    <p class="page-sub">Record a boss you've faced in the Lands Between</p>
+  </div>
+
+  <form class="boss-form" method="POST" action="{{ url_for('add_boss') }}" novalidate id="addForm">
+
+    <!-- Randomizer toggle -->
+    <div class="form-section-block randomizer-block">
+      <div class="randomizer-header">
+        <div class="rand-title-row">
+          <span class="rand-icon">🎲</span>
+          <div>
+            <div class="rand-title">Randomizer Mode</div>
+            <div class="rand-sub">Boss was placed at a different location by a mod</div>
+          </div>
+        </div>
+        <label class="toggle-label">
+          <input type="checkbox" name="is_randomized" id="isRandomized" class="toggle-input"
+                 onchange="toggleRandomizer(this.checked)">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div id="randSlotPicker" style="display:none;margin-top:.85rem">
+        <label class="form-label">Map Location Slot</label>
+        <select name="randomizer_slot" id="randomizerSlot" class="input-field select-field"
+                onchange="onSlotChange(this.value)">
+          <option value="">— Pick a location —</option>
+          {% for slot in map_slots %}
+          <option value="{{ slot.slot }}">{{ slot.slot }} ({{ slot.region }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-two-col">
+
+      <!-- Left column -->
+      <div class="form-col">
+        <div class="form-section-block">
+          <div class="form-section-title">Boss Identity</div>
+
+          <div class="form-group">
+            <label class="form-label">Boss Name <span class="req">*</span></label>
+            <input type="text" id="bossName" name="name" class="input-field" required
+                   value="{{ prefill_name }}"
+                   placeholder="e.g. Margit, the Fell Omen"
+                   list="bossNameList"
+                   oninput="onNameInput(this.value)">
+            <datalist id="bossNameList">
+              {% for n in mandatory_names %}
+              <option value="{{ n }}">
+              {% endfor %}
+            </datalist>
+            <span class="form-hint" id="defaultLocHint" style="display:none"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Region <span class="req">*</span></label>
+            <input type="text" id="regionField" name="region" class="input-field" required
+                   placeholder="e.g. Limgrave">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Boss Type</label>
+            <select name="boss_type" class="input-field select-field">
+              {% for t in ['Field Boss','Shardbearer','Shardbearer Guardian','Empyrean','Demi-God','Required Boss','Spectral Boss','God','Final Boss','Other'] %}
+              <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Image URL or Path</label>
+            <input type="text" name="image_url" class="input-field"
+                   placeholder="/static/images/bosses/name.svg or https://…">
+            <span class="form-hint">Optional — local path or direct URL</span>
+          </div>
+        </div>
+
+        <div class="form-section-block">
+          <div class="form-section-title">My Notes</div>
+          <div class="form-group">
+            <label class="form-label">Personal Notes</label>
+            <textarea id="notesField" name="player_notes" class="input-field textarea-field" rows="4"
+                      placeholder="Write your own strategy, observations, or reminders…"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reward</label>
+            <input type="text" name="reward" class="input-field"
+                   placeholder="e.g. Remembrance of the Grafted">
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="form-col">
+        <div class="form-section-block">
+          <div class="form-section-title">Progress</div>
+
+          <div class="form-group">
+            <label class="form-label">Attempts</label>
+            <input type="number" name="attempts" class="input-field" min="1" value="1">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Difficulty (1–10)</label>
+            <div class="slider-row">
+              <input type="range" name="difficulty_rating" id="diffSlider"
+                     min="1" max="10" value="5" class="diff-slider"
+                     oninput="document.getElementById('diffVal').textContent = this.value">
+              <span class="diff-val-display" id="diffVal">5</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">First Encountered</label>
+            <input type="date" id="encounterDate" name="first_encounter_date" class="input-field">
+          </div>
+
+          <div class="form-group form-group-check">
+            <label class="checkbox-label">
+              <input type="checkbox" name="defeated" id="defeated" class="checkbox-input"
+                     onchange="toggleDefeated(this.checked)">
+              <span class="checkbox-custom"></span>
+              Boss Defeated
+            </label>
+          </div>
+
+          <div id="defeatedDateGroup" style="display:none" class="form-group">
+            <label class="form-label">Defeated On</label>
+            <input type="date" name="defeated_date" class="input-field">
+          </div>
+        </div>
+
+        <div class="form-section-block">
+          <div class="form-section-title">Map Position</div>
+          <p class="form-hint-block">Click the map to set position. Scroll or pinch to zoom. Drag to pan.</p>
+
+          <div class="coords-row">
+            <div class="form-group">
+              <label class="form-label">X %</label>
+              <input type="number" name="map_x" id="mapX" class="input-field"
+                     step="0.1" min="0" max="100" value="50">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Y %</label>
+              <input type="number" name="map_y" id="mapY" class="input-field"
+                     step="0.1" min="0" max="100" value="50">
+            </div>
+          </div>
+
+          <!-- Map picker controls -->
+          <div class="mp-controls">
+            <button type="button" class="mc-btn" id="mpZoomIn">＋</button>
+            <button type="button" class="mc-btn" id="mpZoomOut">－</button>
+            <button type="button" class="mc-btn" id="mpReset">⊙</button>
+            <span class="mc-hint">Drag to pan · scroll to zoom · click to place</span>
+          </div>
+
+          <!-- Map picker: scroll-based viewport -->
+          <div class="map-picker-viewport" id="mpViewport">
+            <div class="map-picker-inner" id="mpInner">
+              <img id="mpImg" class="map-picker-img" alt="Map" draggable="false">
+              <!-- Crosshair marker -->
+              <div class="picker-xhair" id="pickerXhair"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <a href="{{ url_for('boss_list') }}" class="btn btn-ghost btn-lg">Cancel</a>
+      <button type="submit" class="btn btn-primary btn-lg">⚔ Record Encounter</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const DEFAULT_LOCATIONS = {{ default_locations | tojson }};
+const ALL_SLOTS         = {{ map_slots | tojson }};
+
+/* Set today's date */
+document.getElementById('encounterDate').value = new Date().toISOString().split('T')[0];
+
+/* Map picker: scroll-based pan + resize zoom */
+const mpVp  = document.getElementById('mpViewport');
+const mpIn  = document.getElementById('mpInner');
+const mpImg = document.getElementById('mpImg');
+let mpNatW = 1800, mpNatH = 1200, mpScale = 1.0;
+let mpDragging = false, mpLx = 0, mpLy = 0, mpDidDrag = false;
+
+/* Load ER_MAP.jpeg with fallback chain */
+(function(){
+  const srcs = [
+    '/static/images/map/ER_MAP.jpeg',
+    '/static/images/map/ER_MAP.jpg',
+    '/static/images/map/elden_ring_map.jpg',
+    '/static/images/map/elden_ring_map.png',
+    '/static/images/map/elden_ring_map.svg',
+  ];
+  let i = 0;
+  function next(){ if(i >= srcs.length) return; mpImg.onerror = () => { i++; next(); }; mpImg.src = srcs[i++]; }
+  next();
+})();
+
+mpImg.addEventListener('load', function(){
+  mpNatW = this.naturalWidth  || 1800;
+  mpNatH = this.naturalHeight || 1200;
+  mpScale = mpVp.offsetWidth / mpNatW;
+  mpApply();
+  /* If we have existing coords, show crosshair */
+  const x = parseFloat(document.getElementById('mapX').value);
+  const y = parseFloat(document.getElementById('mapY').value);
+  if (!isNaN(x) && !isNaN(y)) placeCrosshair(x, y);
+});
+
+function mpApply(){
+  const w = Math.round(mpNatW * mpScale);
+  const h = Math.round(mpNatH * mpScale);
+  mpImg.style.width  = w + 'px';
+  mpImg.style.height = h + 'px';
+  mpIn.style.width   = w + 'px';
+  mpIn.style.height  = h + 'px';
+}
+
+function mpZoom(f, cx, cy){
+  const minS = (mpVp.offsetWidth / mpNatW) * 0.8;
+  const ns   = Math.max(minS, Math.min(8, mpScale * f));
+  const vr   = mpVp.getBoundingClientRect();
+  const px   = cx !== undefined ? cx - vr.left : vr.width  / 2;
+  const py   = cy !== undefined ? cy - vr.top  : vr.height / 2;
+  const ix   = (mpVp.scrollLeft + px) / mpScale;
+  const iy   = (mpVp.scrollTop  + py) / mpScale;
+  mpScale = ns;
+  mpApply();
+  mpVp.scrollLeft = ix * mpScale - px;
+  mpVp.scrollTop  = iy * mpScale - py;
+}
+
+/* Drag to pan */
+mpVp.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  mpDragging = true; mpDidDrag = false;
+  mpLx = e.clientX; mpLy = e.clientY;
+  mpVp.style.cursor = 'grabbing';
+  e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+  if (!mpDragging) return;
+  const dx = e.clientX - mpLx, dy = e.clientY - mpLy;
+  if (Math.abs(dx) > 2 || Math.abs(dy) > 2) mpDidDrag = true;
+  mpVp.scrollLeft -= dx; mpVp.scrollTop -= dy;
+  mpLx = e.clientX; mpLy = e.clientY;
+});
+window.addEventListener('mouseup', () => { mpDragging = false; mpVp.style.cursor = 'crosshair'; });
+
+/* Wheel zoom */
+mpVp.addEventListener('wheel', e => {
+  e.preventDefault();
+  mpZoom(e.deltaY < 0 ? 1.14 : 0.88, e.clientX, e.clientY);
+}, { passive: false });
+
+/* Buttons */
+document.getElementById('mpZoomIn').addEventListener('click',  () => mpZoom(1.25));
+document.getElementById('mpZoomOut').addEventListener('click', () => mpZoom(0.8));
+document.getElementById('mpReset').addEventListener('click',   () => {
+  mpScale = mpVp.offsetWidth / mpNatW;
+  mpApply(); mpVp.scrollLeft = 0; mpVp.scrollTop = 0;
+});
+
+/* Click image to place crosshair */
+mpImg.addEventListener('click', e => {
+  if (mpDidDrag){ mpDidDrag = false; return; }
+  const rect = mpImg.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / mpImg.offsetWidth  * 100).toFixed(1);
+  const y = ((e.clientY - rect.top)  / mpImg.offsetHeight * 100).toFixed(1);
+  document.getElementById('mapX').value = x;
+  document.getElementById('mapY').value = y;
+  placeCrosshair(x, y);
+});
+
+function placeCrosshair(x, y){
+  const xh = document.getElementById('pickerXhair');
+  xh.style.left    = x + '%';
+  xh.style.top     = y + '%';
+  xh.style.display = 'block';
+}
+
+/* Auto-fill region and map coords when a known boss name is typed */
+function onNameInput(val){
+  const loc  = DEFAULT_LOCATIONS[val];
+  const hint = document.getElementById('defaultLocHint');
+  const rand = document.getElementById('isRandomized').checked;
+  if (loc && !rand){
+    document.getElementById('regionField').value = loc.region;
+    document.getElementById('mapX').value = loc.map_x;
+    document.getElementById('mapY').value = loc.map_y;
+    placeCrosshair(loc.map_x, loc.map_y);
+    hint.textContent = '✦ Location auto-filled: ' + loc.region;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+function toggleRandomizer(on){
+  document.getElementById('randSlotPicker').style.display = on ? 'block' : 'none';
+  document.getElementById('defaultLocHint').style.display = 'none';
+}
+
+function onSlotChange(slotName){
+  const slot = ALL_SLOTS.find(s => s.slot === slotName);
+  if (slot){
+    document.getElementById('regionField').value = slot.region;
+    document.getElementById('mapX').value = slot.map_x;
+    document.getElementById('mapY').value = slot.map_y;
+    placeCrosshair(slot.map_x, slot.map_y);
+  }
+}
+
+function toggleDefeated(on){
+  document.getElementById('defeatedDateGroup').style.display = on ? 'block' : 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Elden Ring Boss Tracker{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="{% block body_class %}page-scrollable{% endblock %}">
+    <div class="noise-overlay"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <a href="{{ url_for('index') }}" class="logo-link">
+                <span class="logo-rune">⚔</span>
+                <div class="logo-text-wrap">
+                    <span class="logo-main">Boss Tracker</span>
+                    <span class="logo-sub">Elden Ring</span>
+                </div>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <span class="nav-section-label">Navigation</span>
+                <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                    <span class="nav-icon">🗺</span><span class="nav-label">Realm Overview</span>
+                </a>
+                <a href="{{ url_for('boss_list') }}" class="nav-item {% if request.endpoint == 'boss_list' %}active{% endif %}">
+                    <span class="nav-icon">📜</span><span class="nav-label">Bestiary</span>
+                </a>
+            </div>
+            <div class="nav-section">
+                <span class="nav-section-label">Actions</span>
+                <a href="{{ url_for('add_boss') }}" class="nav-item nav-item-cta {% if request.endpoint == 'add_boss' %}active{% endif %}">
+                    <span class="nav-icon">＋</span><span class="nav-label">Mark Encounter</span>
+                </a>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <span class="sidebar-grace">May grace guide thee</span>
+        </div>
+    </aside>
+    <div class="main-wrapper" id="mainWrapper">
+        <header class="topbar">
+            <button class="topbar-toggle" id="topbarToggle" aria-label="Toggle menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="topbar-breadcrumb">
+                {% block breadcrumb %}<span>Lands Between</span>{% endblock %}
+            </div>
+            <div class="topbar-actions">
+                <a href="{{ url_for('add_boss') }}" class="btn btn-primary btn-sm">+ Encounter</a>
+            </div>
+        </header>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}" role="alert">
+                <span class="flash-icon">{% if category == 'success' %}✦{% else %}⚠{% endif %}</span>
+                <span>{{ message }}</span>
+                <button class="flash-close" onclick="this.parentElement.remove()">✕</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        <main class="page-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

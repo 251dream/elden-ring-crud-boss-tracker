@@ -1,0 +1,928 @@
+{% extends "base.html" %}
+{% block title %}Realm Overview — Elden Ring Boss Tracker{% endblock %} <!-- title -->
+{% block body_class %}page-dashboard{% endblock %} <!-- page class -->
+{% block breadcrumb %}<span>Realm Overview</span>{% endblock %}
+
+{% block content %}
+<div class="dashboard-shell"> <!-- main layout -->
+
+  <div class="dash-left"> <!-- left panel -->
+    <div class="dash-title-block">
+      <h1 class="dash-title">The Lands Between</h1>
+      <p class="dash-sub">{{ total }} bosses · {{ defeated }} defeated</p> <!-- stats -->
+    </div>
+
+    <div class="stats-compact"> <!-- small stats -->
+      <div class="sc-item sc-green"><span class="sc-val">{{ defeated }}</span><span class="sc-lbl">Defeated</span></div>
+      <div class="sc-item sc-red"><span class="sc-val">{{ undefeated }}</span><span class="sc-lbl">Remaining</span></div>
+      <div class="sc-item sc-gold"><span class="sc-val">{{ avg_diff }}</span><span class="sc-lbl">Avg Diff</span></div>
+      <div class="sc-item"><span class="sc-val">{{ total_attempts }}</span><span class="sc-lbl">Attempts</span></div>
+    </div>
+
+    <div class="map-controls-bar"> <!-- controls -->
+      <button class="mc-btn" id="zoomIn">＋</button>
+      <button class="mc-btn" id="zoomOut">－</button>
+      <button class="mc-btn" id="zoomReset">⊙</button>
+      <span class="mc-sep"></span>
+      <button class="mc-btn mc-export" id="exportPdf">⬇ PDF</button>
+    </div>
+
+    <div class="boss-scroll-list" id="bossPanelList"> <!-- boss list -->
+      {% if bosses %}
+        {% for boss in bosses %}
+        <div class="bsl-item {% if boss.defeated %}bsl-done{% endif %} {% if boss.is_mandatory %}bsl-mandatory{% endif %}"
+             data-id="{{ boss.id }}" onclick="focusMarker({{ boss.id }})">
+          <div class="bsl-num">{{ boss.display_order if boss.display_order < 999 else '—' }}</div>
+          <div class="bsl-img">
+            {% if boss.image_url %}
+            <img src="{{ boss.image_url }}" alt="{{ boss.name }}"
+                 onerror="this.parentElement.innerHTML='<span class=bsl-fb>⚔</span>'">
+            {% else %}<span class="bsl-fb">⚔</span>{% endif %}
+          </div>
+          <div class="bsl-body">
+            <span class="bsl-name">{{ boss.name }}</span> <!-- name -->
+            <span class="bsl-meta">
+              {{ boss.region[:22] }}{% if boss.region|length > 22 %}…{% endif %}
+              · {{ boss.attempts }}×{% if boss.is_randomized %} 🎲{% endif %}
+            </span>
+          </div>
+          <div class="bsl-right">
+            <span class="bsl-badge {% if boss.defeated %}badge-green{% elif boss.attempts > 1 %}badge-blue{% else %}badge-red{% endif %}">
+              {% if boss.defeated %}✓{% elif boss.attempts > 1 %}↻{% else %}!{% endif %}
+            </span>
+            <form method="POST" action="{{ url_for('quick_update', boss_id=boss.id) }}" class="inline-form">
+              <input type="hidden" name="action" value="toggle_defeated">
+              <button type="submit" class="bsl-tb" onclick="event.stopPropagation()">
+                {% if boss.defeated %}☑{% else %}☐{% endif %}
+              </button>
+            </form>
+            <a href="{{ url_for('boss_detail', boss_id=boss.id) }}" class="bsl-vb"
+               onclick="event.stopPropagation()">→</a>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="bsl-empty">
+        <span>⚔</span><p>No bosses yet.</p>
+        <a href="{{ url_for('add_boss') }}" class="btn btn-primary btn-sm">Add First</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="dash-map-col" id="dashMapCol"> <!-- map section -->
+
+    <div class="map-zoom-fixed" id="mapZoomFixed"> <!-- fixed zoom -->
+      <button class="mzo-btn" id="zoomIn2">＋</button>
+      <button class="mzo-btn" id="zoomOut2">－</button>
+      <button class="mzo-btn" id="zoomReset2">⊙</button>
+    </div>
+
+    <div class="map-coords-hud" id="mapCoordsHud">
+      <span id="hudX">X: —</span>
+      <span id="hudY">Y: —</span>
+      <span id="hudScale">1.0×</span>
+    </div>
+
+    <div class="map-legend-fixed" id="mapLegendFixed">
+      <span class="mlb-i"><span class="mlb-dot mlb-alive"></span>Undefeated</span>
+      <span class="mlb-i"><span class="mlb-dot mlb-dead"></span>Defeated</span>
+      <span class="mlb-i"><span class="mlb-path"></span>Path</span>
+    </div>
+
+    <div class="map-viewport" id="mapViewport">
+      <div class="map-scroll-inner" id="mapScrollInner">
+        <img id="mapImg" class="map-bg-img" alt="Elden Ring World Map"
+             draggable="false" crossorigin="anonymous">
+
+        <svg id="mapSvg" class="map-paths-svg"
+             xmlns="http://www.w3.org/2000/svg"
+             style="position:absolute;top:0;left:0;pointer-events:none;z-index:5;overflow:visible"></svg>
+
+        {% for boss in bosses %}
+        <div class="boss-marker {% if boss.defeated %}bm-dead{% else %}bm-alive{% endif %}"
+             id="bm-{{ boss.id }}"
+             style="left:{{ boss.map_x }}%;top:{{ boss.map_y }}%;"
+             data-id="{{ boss.id }}"
+             data-x="{{ boss.map_x }}"
+             data-y="{{ boss.map_y }}"
+             data-order="{{ boss.display_order }}"
+             onclick="openPanel({{ boss.id }})">
+          <div class="bm-ring-outer"></div>
+          <div class="bm-ring-mid"></div>
+          <div class="bm-portrait">
+            {% if boss.image_url %}
+            <img src="{{ boss.image_url }}" alt="{{ boss.name }}"
+                 onerror="this.parentElement.innerHTML='<span class=bm-fb>⚔</span>'">
+            {% else %}<span class="bm-fb">⚔</span>{% endif %}
+            {% if boss.defeated %}<div class="bm-dead-overlay">✓</div>{% endif %}
+          </div>
+          <div class="bm-attempts {% if boss.attempts > 10 %}bm-att-high{% elif boss.attempts > 5 %}bm-att-mid{% endif %}">
+            {{ boss.attempts }}
+          </div>
+          {% if boss.display_order < 999 %}
+          <div class="bm-order">{{ boss.display_order }}</div>
+          {% endif %}
+          <div class="bm-tt">
+            <strong>{{ boss.name }}</strong>
+            <span>{{ boss.region }}</span>
+            <span>{{ boss.attempts }} attempt{{ 's' if boss.attempts != 1 else '' }}</span>
+            <span class="{% if boss.defeated %}tt-green{% else %}tt-red{% endif %}">
+              {% if boss.defeated %}⚔ Defeated{% else %}🔥 Undefeated{% endif %}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+
+        <div class="map-title-badge">✦ The Lands Between ✦</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- side panel -->
+<div class="bsp" id="bsp">
+  <button class="bsp-x" id="bspX">✕</button>
+  <div class="bsp-body" id="bspBody"><div class="bsp-load">Loading…</div></div>
+</div>
+<div class="bsp-bg" id="bspBg" onclick="closePanel()"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BOSS_DATA = [
+  {% for boss in bosses %}
+  {
+    id: {{ boss.id }},
+    x: {{ boss.map_x }},
+    y: {{ boss.map_y }},
+    defeated: {{ 'true' if boss.defeated else 'false' }},
+    order: {{ boss.display_order }},
+    attempts: {{ boss.attempts }}
+  },
+  {% endfor %}
+];
+
+let imgNatW = 1800;
+let imgNatH = 1200;
+let zoomScale = 1.0;
+
+const viewport = document.getElementById('mapViewport');
+const scrollInner = document.getElementById('mapScrollInner');
+const mapImg = document.getElementById('mapImg');
+
+(function () {
+  const srcs = [
+    '/static/images/map/ER_MAP.jpeg',
+    '/static/images/map/ER_MAP.jpg',
+    '/static/images/map/elden_ring_map.jpg',
+    '/static/images/map/elden_ring_map.png',
+    '/static/images/map/elden_ring_map.svg',
+  ];
+  let i = 0;
+  function next() {
+    if (i >= srcs.length) return;
+    mapImg.onerror = () => {
+      i++;
+      next();
+    };
+    mapImg.src = srcs[i++];
+  }
+  next();
+})();
+
+mapImg.addEventListener('load', function () {
+  imgNatW = this.naturalWidth || 1800;
+  imgNatH = this.naturalHeight || 1200;
+  fitToWidth();
+  setTimeout(drawPaths, 80);
+  updateHud();
+});
+
+function fitToWidth() {
+  zoomScale = viewport.offsetWidth / imgNatW; // scale
+  applyZoom();
+}
+
+function applyZoom() {
+  const w = Math.round(imgNatW * zoomScale); // width
+  const h = Math.round(imgNatH * zoomScale); // height
+  mapImg.style.width = w + 'px';
+  mapImg.style.height = h + 'px';
+  scrollInner.style.width = w + 'px';
+  scrollInner.style.height = h + 'px';
+  drawPaths();
+  updateHud();
+}
+
+/* zoom logic */
+function zoom(factor, cx, cy) {
+  const minS = viewport.offsetWidth / imgNatW;
+  const newS = Math.max(minS, Math.min(8, zoomScale * factor));
+  const vr = viewport.getBoundingClientRect();
+  const fx = cx !== undefined ? cx - vr.left : vr.width / 2;
+  const fy = cy !== undefined ? cy - vr.top : vr.height / 2;
+  const ix = (viewport.scrollLeft + fx) / zoomScale;
+  const iy = (viewport.scrollTop + fy) / zoomScale;
+  zoomScale = newS;
+  applyZoom();
+  viewport.scrollLeft = ix * zoomScale - fx;
+  viewport.scrollTop = iy * zoomScale - fy;
+}
+
+function resetZoom() {
+  fitToWidth();
+  viewport.scrollLeft = 0;
+  viewport.scrollTop = 0;
+}
+
+let dragging = false;
+let lx = 0;
+let ly = 0;
+let didDrag = false;
+
+viewport.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  dragging = true;
+  didDrag = false;
+  lx = e.clientX;
+  ly = e.clientY;
+  viewport.style.cursor = 'grabbing';
+  e.preventDefault();
+});
+
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - lx;
+  const dy = e.clientY - ly;
+  if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didDrag = true;
+  viewport.scrollLeft -= dx;
+  viewport.scrollTop -= dy;
+  lx = e.clientX;
+  ly = e.clientY;
+});
+
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  viewport.style.cursor = 'grab';
+});
+
+document.querySelectorAll('.boss-marker').forEach(m => {
+  m.addEventListener('click', e => {
+    if (didDrag) {
+      e.stopImmediatePropagation();
+      didDrag = false;
+    }
+  }, true);
+});
+
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom(e.deltaY < 0 ? 1.12 : 0.89, e.clientX, e.clientY);
+}, { passive: false });
+
+let pp = 0;
+viewport.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    pp = Math.hypot(
+      e.touches[1].clientX - e.touches[0].clientX,
+      e.touches[1].clientY - e.touches[0].clientY
+    );
+  }
+}, { passive: true });
+
+viewport.addEventListener('touchmove', e => {
+  if (e.touches.length !== 2) return;
+  e.preventDefault();
+  const d = Math.hypot(
+    e.touches[1].clientX - e.touches[0].clientX,
+    e.touches[1].clientY - e.touches[0].clientY
+  );
+  if (pp > 0) {
+    zoom(
+      d / pp,
+      (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      (e.touches[0].clientY + e.touches[1].clientY) / 2
+    );
+  }
+  pp = d;
+}, { passive: false });
+
+document.getElementById('zoomIn').addEventListener('click', () => zoom(1.25));
+document.getElementById('zoomOut').addEventListener('click', () => zoom(0.8));
+document.getElementById('zoomReset').addEventListener('click', () => resetZoom());
+document.getElementById('zoomIn2').addEventListener('click', () => zoom(1.25));
+document.getElementById('zoomOut2').addEventListener('click', () => zoom(0.8));
+document.getElementById('zoomReset2').addEventListener('click', () => resetZoom());
+window.addEventListener('resize', () => fitToWidth());
+
+function updateHud(ix, iy) {
+  document.getElementById('hudScale').textContent = zoomScale.toFixed(2) + '×';
+  if (ix !== undefined) {
+    document.getElementById('hudX').textContent = 'X: ' + (ix / imgNatW * 100).toFixed(1) + '%';
+    document.getElementById('hudY').textContent = 'Y: ' + (iy / imgNatH * 100).toFixed(1) + '%';
+  }
+}
+
+viewport.addEventListener('mousemove', e => {
+  const vr = viewport.getBoundingClientRect();
+  updateHud(
+    (viewport.scrollLeft + e.clientX - vr.left) / zoomScale,
+    (viewport.scrollTop + e.clientY - vr.top) / zoomScale
+  );
+});
+
+/* draw svg lines */
+function drawPaths() {
+  const svg = document.getElementById('mapSvg');
+  if (!svg || !imgNatW) return;
+
+  svg.innerHTML = '';
+  const W = Math.round(imgNatW * zoomScale);
+  const H = Math.round(imgNatH * zoomScale);
+
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.style.width = W + 'px';
+  svg.style.height = H + 'px';
+
+  const pts = BOSS_DATA
+    .filter(b => b.order < 999)
+    .sort((a, b) => a.order - b.order);
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const x1 = (a.x / 100) * W;
+    const y1 = (a.y / 100) * H;
+    const x2 = (b.x / 100) * W;
+    const y2 = (b.y / 100) * H;
+    const col = a.defeated ? '#4caf6e' : '#c9a84c';
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    g.setAttribute('x1', x1);
+    g.setAttribute('y1', y1);
+    g.setAttribute('x2', x2);
+    g.setAttribute('y2', y2);
+    g.setAttribute('stroke', col);
+    g.setAttribute('stroke-width', '7');
+    g.setAttribute('stroke-opacity', '0.12');
+    g.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(g);
+
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', x1);
+    l.setAttribute('y1', y1);
+    l.setAttribute('x2', x2);
+    l.setAttribute('y2', y2);
+    l.setAttribute('stroke', col);
+    l.setAttribute('stroke-width', '2');
+    l.setAttribute('stroke-opacity', '0.72');
+    l.setAttribute('stroke-dasharray', '8 5');
+    l.setAttribute('stroke-linecap', 'round');
+    l.style.animation = 'dashFlow 2.8s linear infinite';
+    svg.appendChild(l);
+
+    const d = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    d.setAttribute('cx', (x1 + x2) / 2);
+    d.setAttribute('cy', (y1 + y2) / 2);
+    d.setAttribute('r', '3');
+    d.setAttribute('fill', col);
+    d.setAttribute('opacity', '0.7');
+    svg.appendChild(d);
+  }
+}
+
+window.addEventListener('resize', drawPaths);
+
+
+/* center map on marker */
+function focusMarker(id) {
+  document.querySelectorAll('.boss-marker').forEach(m => m.classList.remove('bm-focus'));
+  document.querySelectorAll('.bsl-item').forEach(i => i.classList.remove('bsl-active'));
+
+  const m = document.getElementById('bm-' + id);
+  const it = document.querySelector('.bsl-item[data-id="' + id + '"]');
+
+  if (m) {
+    m.classList.add('bm-focus');
+    const W = Math.round(imgNatW * zoomScale);
+    const H = Math.round(imgNatH * zoomScale);
+    viewport.scrollLeft = (parseFloat(m.dataset.x) / 100) * W - viewport.offsetWidth / 2;
+    viewport.scrollTop = (parseFloat(m.dataset.y) / 100) * H - viewport.offsetHeight / 2;
+    setTimeout(() => m.classList.remove('bm-focus'), 3500);
+  }
+
+  if (it) {
+    it.classList.add('bsl-active');
+    it.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+
+/* open boss panel */
+async function openPanel(id) {
+  const panel = document.getElementById('bsp');
+  const body = document.getElementById('bspBody');
+
+  document.getElementById('bspBg').style.display = 'block';
+  panel.classList.add('bsp-open');
+  body.innerHTML = '<div class="bsp-load">Loading…</div>';
+
+  focusMarker(id);
+
+  try {
+    const boss = await fetch('/api/boss/' + id).then(r => r.json());
+    const stars = '★'.repeat(boss.difficulty_rating) + '☆'.repeat(10 - boss.difficulty_rating);
+    const sc = boss.defeated ? 'badge-green' : boss.attempts > 1 ? 'badge-blue' : 'badge-red';
+    const st = boss.defeated ? '⚔ Defeated' : boss.attempts > 1 ? '↻ In Progress' : '👁 Encountered';
+
+    body.innerHTML =
+      '<div class="bsp-portrait">' +
+        (boss.image_url
+          ? '<img src="' + boss.image_url + '" alt="' + boss.name + '" class="bsp-pimg" onerror="this.parentElement.classList.add(\'bsp-noimg\')">'
+          : '<span class="bsp-noimg-icon">⚔</span>') +
+        '<div class="bsp-pgrad"></div>' +
+      '</div>' +
+      '<div class="bsp-info">' +
+        '<div class="bsp-type-row">' +
+          '<span class="type-tag">' + boss.boss_type + '</span>' +
+          (boss.is_mandatory ? '<span class="mandatory-tag">✦ Mandatory</span>' : '') +
+          (boss.display_order < 999 ? '<span class="order-tag">#' + boss.display_order + '</span>' : '') +
+        '</div>' +
+        '<h2 class="bsp-name">' + boss.name + '</h2>' +
+        '<div class="bsp-region">📍 ' + boss.region + '</div>' +
+        '<span class="status-badge ' + sc + '" style="margin-top:.4rem;display:inline-flex">' + st + '</span>' +
+        '<div class="bsp-stats">' +
+          '<div class="bsp-stat"><span>Attempts</span><strong>' + boss.attempts + '</strong></div>' +
+          '<div class="bsp-stat"><span>Difficulty</span><strong class="gold">' + boss.difficulty_rating + '/10</strong></div>' +
+          '<div class="bsp-stat full"><span>Rating</span><strong class="stars-gold">' + stars + '</strong></div>' +
+        '</div>' +
+        (boss.player_notes ? '<div class="bsp-block"><div class="bsp-bt">📝 My Notes</div><p>' + boss.player_notes + '</p></div>' : '') +
+        (boss.reward ? '<div class="bsp-block"><div class="bsp-bt">✦ Reward</div><p>' + boss.reward + '</p></div>' : '') +
+        '<div class="bsp-actions">' +
+          '<a href="/boss/' + boss.id + '" class="btn btn-primary btn-sm">Full Details</a>' +
+          '<a href="/boss/edit/' + boss.id + '" class="btn btn-ghost btn-sm">Edit</a>' +
+          '<form method="POST" action="/boss/quick-update/' + boss.id + '" class="inline-form"><input type="hidden" name="action" value="toggle_defeated"><button type="submit" class="btn btn-sm ' + (boss.defeated ? 'btn-ghost' : 'btn-green') + '">' + (boss.defeated ? '↩ Unmark' : '✓ Defeat') + '</button></form>' +
+          '<form method="POST" action="/boss/quick-update/' + boss.id + '" class="inline-form"><input type="hidden" name="action" value="increment_attempts"><button type="submit" class="btn btn-ghost btn-sm">+1 Attempt</button></form>' +
+          '<form method="POST" action="/boss/delete/' + boss.id + '" class="inline-form" onsubmit="return confirm(\'Remove ' + boss.name.replace(/'/g, "\\'") + ' from tracker?\')"><button type="submit" class="btn btn-danger btn-sm">Delete</button></form>' +
+        '</div>' +
+      '</div>';
+  } catch (e) {
+    body.innerHTML = '<div class="bsp-load">Failed to load.</div>';
+  }
+}
+
+/* close panel */
+function closePanel() {
+  document.getElementById('bsp').classList.remove('bsp-open');
+  document.getElementById('bspBg').style.display = 'none';
+}
+
+document.getElementById('bspX').addEventListener('click', closePanel);
+
+document.querySelectorAll('.boss-marker').forEach(m => {
+  m.addEventListener('mouseenter', () => {
+    const it = document.querySelector('.bsl-item[data-id="' + m.dataset.id + '"]');
+    if (it) it.classList.add('bsl-hover');
+  });
+  m.addEventListener('mouseleave', () => {
+    document.querySelectorAll('.bsl-item').forEach(i => i.classList.remove('bsl-hover'));
+  });
+});
+
+document.getElementById('exportPdf').addEventListener('click', exportPdf);
+
+function decodeBase64Unicode(base64) {
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function svgDataUriToBlobUrl(src) {
+  const commaIndex = src.indexOf(',');
+  if (commaIndex === -1) return null;
+
+  const meta = src.slice(0, commaIndex);
+  const data = src.slice(commaIndex + 1);
+
+  try {
+    let svgText = '';
+    if (meta.includes(';base64')) {
+      svgText = decodeBase64Unicode(data);
+    } else {
+      svgText = decodeURIComponent(data);
+    }
+    const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+    return URL.createObjectURL(blob);
+  } catch (err) {
+    console.warn('Failed to decode SVG data URI', err);
+    return null;
+  }
+}
+
+function loadImg(src) {
+  return new Promise(resolve => {
+    if (!src) {
+      resolve(null);
+      return;
+    }
+
+    const img = new Image();
+    let blobUrl = null;
+
+    img.onload = () => {
+      if (blobUrl) {
+        img._blobUrl = blobUrl;
+      }
+      resolve(img);
+    };
+
+    img.onerror = () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      resolve(null);
+    };
+
+    if (src.startsWith('data:image/svg+xml')) {
+      blobUrl = svgDataUriToBlobUrl(src);
+      if (!blobUrl) {
+        resolve(null);
+        return;
+      }
+      img.src = blobUrl;
+    } else {
+      img.src = src;
+    }
+  });
+}
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function waitForImageLoad(img) {
+  return new Promise((resolve, reject) => {
+    if (!img) {
+      resolve();
+      return;
+    }
+
+    if (img.complete && img.naturalWidth > 0) {
+      resolve();
+      return;
+    }
+
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('Popup image failed to load'));
+  });
+}
+
+
+ /* export PDF logic */
+async function exportPdf() {
+  const btn = document.getElementById('exportPdf');
+  if (!btn) return;
+
+  btn.textContent = '⏳ Building…';
+  btn.disabled = true;
+
+  try {
+    const response = await fetch('/api/export-data');
+    const data = await response.json();
+
+    if (!data || !data.bosses) {
+      throw new Error('Invalid export payload');
+    }
+
+    const today = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    let mapDataUrl = '';
+
+    try {
+      /* Higher export resolution */
+      const W = 2400;
+      const H = 1600;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      ctx.fillStyle = '#090806';
+      ctx.fillRect(0, 0, W, H);
+
+      if (!data.map_b64) {
+        throw new Error('Map image missing from export payload');
+      }
+
+      const exportedMap = await loadImg(data.map_b64);
+      if (!exportedMap) {
+        throw new Error('Could not load exported map image');
+      }
+
+      ctx.drawImage(exportedMap, 0, 0, W, H);
+
+      /* Path lines */
+      const pts = data.bosses
+        .filter(b => b.display_order < 999)
+        .sort((a, b) => a.display_order - b.display_order);
+
+      ctx.save();
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i];
+        const b = pts[i + 1];
+
+        const x1 = (a.map_x / 100) * W;
+        const y1 = (a.map_y / 100) * H;
+        const x2 = (b.map_x / 100) * W;
+        const y2 = (b.map_y / 100) * H;
+        const col = a.defeated ? '#4caf6e' : '#c9a84c';
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 14;
+        ctx.globalAlpha = 0.14;
+        ctx.setLineDash([]);
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 4;
+        ctx.globalAlpha = 0.88;
+        ctx.setLineDash([18, 12]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc((x1 + x2) / 2, (y1 + y2) / 2, 6, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.globalAlpha = 0.9;
+        ctx.setLineDash([]);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      /* Boss markers */
+      for (const b of data.bosses) {
+        const mx = (b.map_x / 100) * W;
+        const my = (b.map_y / 100) * H;
+        const col = b.defeated ? '#4caf6e' : '#e57373';
+        const r = 34;
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.arc(mx, my, r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(10,8,6,0.88)';
+        ctx.fill();
+
+        if (b.image_b64) {
+          const pImg = await loadImg(b.image_b64);
+          if (pImg) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(mx, my, r, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.globalAlpha = 0.96;
+            ctx.drawImage(pImg, mx - r, my - r, r * 2, r * 2);
+            ctx.restore();
+
+            if (pImg._blobUrl) {
+              URL.revokeObjectURL(pImg._blobUrl);
+            }
+          }
+        }
+
+        ctx.beginPath();
+        ctx.arc(mx, my, r + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 6;
+        ctx.globalAlpha = 0.98;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        /* Attempt badge */
+        const bx = mx + r + 8;
+        const by = my - r + 4;
+        ctx.fillStyle = 'rgba(9,8,6,0.95)';
+        ctx.beginPath();
+        ctx.roundRect(bx - 24, by - 15, 48, 26, 7);
+        ctx.fill();
+
+        ctx.font = 'bold 16px Georgia';
+        ctx.fillStyle = '#c9a84c';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(b.attempts) + '×', bx, by - 1);
+
+        /* Story order */
+        if (b.display_order < 999) {
+          const ox = mx;
+          const oy = my + r + 22;
+
+          ctx.fillStyle = 'rgba(9,8,6,0.93)';
+          ctx.beginPath();
+          ctx.roundRect(ox - 24, oy - 14, 48, 26, 7);
+          ctx.fill();
+
+          ctx.font = 'bold 15px Georgia';
+          ctx.fillStyle = '#e8cc7a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('#' + b.display_order, ox, oy - 1);
+        }
+
+        ctx.restore();
+      }
+
+      /* Legend */
+      ctx.save();
+      ctx.fillStyle = 'rgba(9,8,6,0.9)';
+      ctx.beginPath();
+      ctx.roundRect(24, H - 92, 420, 52, 10);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(201,168,76,0.45)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const LEG = [
+        { col: '#e57373', label: 'Undefeated' },
+        { col: '#4caf6e', label: 'Defeated' },
+        { col: '#c9a84c', label: 'Path', dash: true }
+      ];
+
+      LEG.forEach((it, i) => {
+        const lx = 42 + i * 132;
+        const ly = H - 66;
+
+        ctx.font = '16px Georgia';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.globalAlpha = 1;
+
+        if (it.dash) {
+          ctx.strokeStyle = it.col;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([10, 7]);
+          ctx.beginPath();
+          ctx.moveTo(lx, ly);
+          ctx.lineTo(lx + 26, ly);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#b7a381';
+          ctx.fillText(it.label, lx + 34, ly);
+        } else {
+          ctx.beginPath();
+          ctx.arc(lx + 7, ly, 7, 0, Math.PI * 2);
+          ctx.fillStyle = it.col;
+          ctx.fill();
+          ctx.fillStyle = '#b7a381';
+          ctx.fillText(it.label, lx + 20, ly);
+        }
+      });
+      ctx.restore();
+
+      /* PNG keeps sharp quality better than JPEG */
+      mapDataUrl = canvas.toDataURL('image/png');
+
+      if (!mapDataUrl || mapDataUrl === 'data:,') {
+        throw new Error('Canvas export produced empty image');
+      }
+
+      if (exportedMap._blobUrl) {
+        URL.revokeObjectURL(exportedMap._blobUrl);
+      }
+    } catch (err) {
+      console.warn('Canvas export failed:', err);
+      mapDataUrl = data.map_b64 || '';
+    }
+
+    const rows = data.bosses.map(b => {
+      const stars = '★'.repeat(b.difficulty_rating) + '☆'.repeat(10 - b.difficulty_rating);
+      const status = b.defeated ? '✓ Defeated' : b.attempts > 1 ? '↻ In Progress' : '👁 Encountered';
+      const sc = b.defeated ? '#4caf6e' : b.attempts > 1 ? '#5b9bd5' : '#e57373';
+
+      return '<tr>' +
+        '<td style="padding:5px 8px;color:#c9a84c;text-align:center;font-size:11px;border-bottom:1px solid rgba(201,168,76,.07)">' + (b.display_order < 999 ? b.display_order : '—') + '</td>' +
+        '<td style="padding:5px 8px;border-bottom:1px solid rgba(201,168,76,.07)">' +
+          (b.image_b64 ? '<img src="' + b.image_b64 + '" style="width:26px;height:26px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid rgba(201,168,76,.35)">' : '') +
+          '<span style="font-weight:bold;color:#e4d9c2;font-size:11px">' + escapeHtml(b.name) + '</span>' +
+          (b.is_mandatory ? ' <span style="font-size:9px;color:#c9a84c">✦</span>' : '') +
+        '</td>' +
+        '<td style="padding:5px 8px;color:#7a6a50;font-size:10px;border-bottom:1px solid rgba(201,168,76,.07)">' + escapeHtml(b.region) + '</td>' +
+        '<td style="padding:5px 8px;text-align:center;border-bottom:1px solid rgba(201,168,76,.07)"><span style="color:' + sc + ';font-size:10px;font-weight:bold">' + status + '</span></td>' +
+        '<td style="padding:5px 8px;text-align:center;color:#7a6a50;font-size:10px;border-bottom:1px solid rgba(201,168,76,.07)">' + b.attempts + '</td>' +
+        '<td style="padding:5px 8px;color:#c9a84c;font-size:10px;border-bottom:1px solid rgba(201,168,76,.07)">' + stars + '</td>' +
+      '</tr>';
+    }).join('');
+
+    const noteCards = data.bosses.map(b =>
+      '<div style="background:#151210;border:1px solid rgba(201,168,76,.13);border-radius:5px;padding:11px;margin-bottom:9px;page-break-inside:avoid">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          (b.image_b64 ? '<img src="' + b.image_b64 + '" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1px solid rgba(201,168,76,.35)">' : '') +
+          '<div>' +
+            '<div style="font-family:Georgia,serif;font-size:12px;font-weight:bold;color:#e8cc7a">' + escapeHtml(b.name) + (b.display_order < 999 ? ' <span style="font-size:9px;color:#c9a84c">#' + b.display_order + '</span>' : '') + '</div>' +
+            '<div style="font-size:10px;color:#7a6a50">' + escapeHtml(b.region) + (b.defeated ? ' · <span style="color:#4caf6e">Defeated</span>' : ' · <span style="color:#e57373">Undefeated</span>') + '</div>' +
+          '</div>' +
+        '</div>' +
+        (b.player_notes
+          ? '<div style="font-size:12px;color:#e4d9c2;line-height:1.65">' + escapeHtml(b.player_notes) + '</div>'
+          : '<div style="font-size:11px;color:#3a3020;font-style:italic">No notes recorded yet.</div>') +
+        (b.reward ? '<div style="font-size:10px;color:#c9a84c;margin-top:4px">✦ ' + escapeHtml(b.reward) + '</div>' : '') +
+      '</div>'
+    ).join('');
+
+    const css =
+      '@page{size:letter portrait;margin:0.45in;}' +
+      '@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;1,400&display=swap");' +
+      '*{margin:0;padding:0;box-sizing:border-box}' +
+      'body{background:#090806;color:#e4d9c2;font-family:"Crimson Text",Georgia,serif}' +
+      '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pb{page-break-before:always}}' +
+      '.wrap{padding:16px 20px;max-width:100%;margin:0 auto}' +
+      'h1{font-family:"Cinzel",serif;font-size:22px;color:#e8cc7a;letter-spacing:.1em;text-transform:uppercase;text-align:center;margin-bottom:3px}' +
+      '.sub{font-family:"Cinzel",serif;font-size:9px;color:#7a6a50;letter-spacing:.2em;text-transform:uppercase;text-align:center;margin-bottom:12px}' +
+      '.rule{height:1px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);margin:10px 0}' +
+      '.stats{display:flex;gap:8px;margin:12px 0}.sbox{flex:1;background:#151210;border:1px solid rgba(201,168,76,.2);border-radius:4px;padding:9px;text-align:center}' +
+      '.sv{display:block;font-family:"Cinzel",serif;font-size:18px;font-weight:700;color:#e8cc7a;line-height:1}' +
+      '.sl{display:block;font-family:"Cinzel",serif;font-size:7px;letter-spacing:.14em;text-transform:uppercase;color:#7a6a50;margin-top:2px}' +
+      '.green .sv{color:#4caf6e}.red .sv{color:#e57373}.gold .sv{color:#c9a84c}' +
+      '.map-wrap{border:1px solid rgba(201,168,76,.16);border-radius:5px;overflow:hidden;margin:10px 0}' +
+      '.map-lbl{font-family:"Cinzel",serif;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#c9a84c;padding:5px 9px;border-bottom:1px solid rgba(201,168,76,.12);background:#0d0b08}' +
+      '.map-wrap img{width:100%;height:auto;display:block;image-rendering:auto}' +
+      '.sec{font-family:"Cinzel",serif;font-size:11px;font-weight:700;color:#c9a84c;letter-spacing:.08em;text-transform:uppercase;margin:14px 0 7px;padding-bottom:4px;border-bottom:1px solid rgba(201,168,76,.16)}' +
+      'table{width:100%;border-collapse:collapse;background:#151210;border:1px solid rgba(201,168,76,.1);border-radius:5px;overflow:hidden}' +
+      'thead tr{background:#0d0b08}thead th{font-family:"Cinzel",serif;font-size:7px;letter-spacing:.12em;text-transform:uppercase;color:#7a6a50;padding:5px 7px;text-align:left;border-bottom:1px solid rgba(201,168,76,.16)}' +
+      '.foot{font-family:"Cinzel",serif;font-size:7px;letter-spacing:.13em;text-transform:uppercase;color:#302818;text-align:center;margin-top:16px;padding-top:9px;border-top:1px solid rgba(201,168,76,.07)}';
+
+    const html =
+      '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Elden Ring Boss Tracker</title><style>' + css + '</style></head><body>' +
+      '<div class="wrap"><h1>Elden Ring Boss Tracker</h1><div class="sub">Journey Report · ' + today + '</div><div class="rule"></div>' +
+      (mapDataUrl ? '<div class="map-wrap"><div class="map-lbl">🗺 World Map · Locations · Journey Path · Markers</div><img id="exportedMapImg" src="' + mapDataUrl + '" alt="Map"></div>' : '') +
+      '</div>' +
+      '<div class="pb"></div><div class="wrap"><h1>Boss Statistics</h1><div class="sub">Full encounter record · ' + today + '</div><div class="rule"></div>' +
+      '<div class="stats">' +
+      '<div class="sbox"><span class="sv">' + data.stats.total + '</span><span class="sl">Encountered</span></div>' +
+      '<div class="sbox green"><span class="sv">' + data.stats.defeated + '</span><span class="sl">Defeated</span></div>' +
+      '<div class="sbox red"><span class="sv">' + data.stats.remaining + '</span><span class="sl">Remaining</span></div>' +
+      '<div class="sbox gold"><span class="sv">' + data.stats.avg_difficulty + '</span><span class="sl">Avg Difficulty</span></div>' +
+      '<div class="sbox"><span class="sv">' + data.stats.total_attempts + '</span><span class="sl">Total Attempts</span></div>' +
+      '</div>' +
+      '<div class="sec">All Bosses</div>' +
+      '<table><thead><tr><th>#</th><th>Boss</th><th>Region</th><th>Status</th><th>Attempts</th><th>Difficulty</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>' +
+      '<div class="pb"></div><div class="wrap"><h1>Boss Notes</h1><div class="sub">Personal journal · ' + today + '</div><div class="rule"></div>' +
+      noteCards +
+      '</div>' +
+      '<div class="foot" style="padding:10px 28px 18px">Elden Ring Boss Tracker · May grace guide thee · ' + today + '</div>' +
+      '</body></html>';
+
+    const w = window.open('', '_blank');
+    if (!w) {
+      throw new Error('Popup blocked');
+    }
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+
+    await new Promise(resolve => {
+      if (w.document.readyState === 'complete') {
+        resolve();
+      } else {
+        w.onload = () => resolve();
+      }
+    });
+
+    const popupMapImg = w.document.getElementById('exportedMapImg');
+    await waitForImageLoad(popupMapImg);
+
+    w.focus();
+    w.print();
+  } catch (err) {
+    console.error(err);
+    alert('PDF export failed: ' + err.message);
+  } finally {
+    btn.textContent = '⬇ PDF';
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

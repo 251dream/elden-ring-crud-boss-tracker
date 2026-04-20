@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Bestiary — Elden Ring Boss Tracker{% endblock %}
+{% block body_class %}page-scrollable{% endblock %}
+{% block breadcrumb %}<a href="{{ url_for('index') }}">Realm</a> <span>›</span> <span>Bestiary</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Bestiary</h1>
+        <p class="page-sub">{{ bosses|length }} boss{{ 'es' if bosses|length != 1 else '' }} in your tracker</p>
+    </div>
+    <a href="{{ url_for('add_boss') }}" class="btn btn-primary">+ Mark Encounter</a>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar" id="filterBar">
+    <form method="GET" action="{{ url_for('boss_list') }}" id="filterForm">
+        <div class="filter-fields">
+            <div class="filter-search">
+                <input type="text" name="search" id="searchInput"
+                       value="{{ search }}" placeholder="Search bosses…"
+                       class="input-field" autocomplete="off">
+                <span class="search-icon">⚔</span>
+            </div>
+            <select name="region" class="input-field select-field" onchange="this.form.submit()">
+                <option value="">All Regions</option>
+                {% for r in regions %}
+                <option value="{{ r }}" {% if r == region_filter %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="input-field select-field" onchange="this.form.submit()">
+                <option value="">All Status</option>
+                <option value="defeated" {% if status_filter=='defeated' %}selected{% endif %}>Defeated</option>
+                <option value="undefeated" {% if status_filter=='undefeated' %}selected{% endif %}>Undefeated</option>
+            </select>
+            <select name="sort" class="input-field select-field" onchange="this.form.submit()">
+                <option value="name" {% if sort_by=='name' %}selected{% endif %}>A–Z</option>
+                <option value="difficulty" {% if sort_by=='difficulty' %}selected{% endif %}>Hardest First</option>
+                <option value="attempts" {% if sort_by=='attempts' %}selected{% endif %}>Most Attempts</option>
+                <option value="date" {% if sort_by=='date' %}selected{% endif %}>Date Encountered</option>
+            </select>
+            {% if search or region_filter or status_filter %}
+            <a href="{{ url_for('boss_list') }}" class="btn btn-ghost btn-sm">✕ Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Boss Table -->
+{% if bosses %}
+<div class="boss-table-wrap">
+    <table class="boss-table">
+        <thead>
+            <tr>
+                <th class="col-img"></th>
+                <th>Boss</th>
+                <th>Region</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Difficulty</th>
+                <th>Attempts</th>
+                <th>Encountered</th>
+                <th class="col-actions">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for boss in bosses %}
+            <tr class="boss-row {% if boss.defeated %}row-defeated{% endif %}" data-id="{{ boss.id }}">
+                <td class="col-img">
+                    {% if boss.image_url %}
+                    <div class="table-img-wrap">
+                        <img src="{{ boss.image_url }}" alt="{{ boss.name }}"
+                             class="table-img boss-img-3d"
+                             onerror="this.parentElement.innerHTML='<span class=table-img-fallback>⚔</span>'">
+                    </div>
+                    {% else %}
+                    <div class="table-img-wrap"><span class="table-img-fallback">⚔</span></div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="boss-name-cell">
+                        <a href="{{ url_for('boss_detail', boss_id=boss.id) }}" class="boss-name-link">{{ boss.name }}</a>
+                        {% if boss.is_randomized %}
+                        <span class="rand-tag-sm">🎲</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="text-muted">{{ boss.region }}</td>
+                <td><span class="type-tag">{{ boss.boss_type }}</span></td>
+                <td>
+                    <span class="status-badge {% if boss.defeated %}badge-green{% elif boss.attempts > 1 %}badge-blue{% else %}badge-red{% endif %}">
+                        {% if boss.defeated %}⚔ Defeated{% elif boss.attempts > 1 %}↻ In Progress{% else %}👁 Encountered{% endif %}
+                    </span>
+                </td>
+                <td>
+                    <div class="diff-cell">
+                        <div class="diff-bar">
+                            <div class="diff-fill" style="width:{{ boss.difficulty_rating * 10 }}%"
+                                 data-level="{{ boss.difficulty_rating }}"></div>
+                        </div>
+                        <span class="diff-num">{{ boss.difficulty_rating }}</span>
+                    </div>
+                </td>
+                <td class="text-center">{{ boss.attempts }}</td>
+                <td class="text-muted text-sm">{{ boss.first_encounter_date.strftime('%b %d, %Y') if boss.first_encounter_date else '—' }}</td>
+                <td class="col-actions">
+                    <div class="action-group">
+                        <!-- Quick toggle defeated -->
+                        <form method="POST" action="{{ url_for('quick_update', boss_id=boss.id) }}" class="inline-form" title="Toggle defeated">
+                            <input type="hidden" name="action" value="toggle_defeated">
+                            <button type="submit" class="action-btn action-toggle {% if boss.defeated %}btn-active{% endif %}"
+                                    title="{% if boss.defeated %}Mark undefeated{% else %}Mark defeated{% endif %}">
+                                {% if boss.defeated %}☑{% else %}☐{% endif %}
+                            </button>
+                        </form>
+                        <!-- Increment attempts -->
+                        <form method="POST" action="{{ url_for('quick_update', boss_id=boss.id) }}" class="inline-form" title="Add attempt">
+                            <input type="hidden" name="action" value="increment_attempts">
+                            <button type="submit" class="action-btn action-attempt" title="Add attempt (+1)">+</button>
+                        </form>
+                        <!-- View -->
+                        <a href="{{ url_for('boss_detail', boss_id=boss.id) }}" class="action-btn action-view" title="View details">👁</a>
+                        <!-- Edit -->
+                        <a href="{{ url_for('edit_boss', boss_id=boss.id) }}" class="action-btn action-edit" title="Edit">✎</a>
+                        <!-- Delete -->
+                        <form method="POST" action="{{ url_for('delete_boss', boss_id=boss.id) }}" class="inline-form"
+                              onsubmit="return confirm('Remove {{ boss.name }} from tracker? This cannot be undone.')">
+                            <button type="submit" class="action-btn action-delete" title="Delete">✕</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Card view (mobile) -->
+<div class="boss-cards-mobile">
+    {% for boss in bosses %}
+    <div class="boss-card-mobile {% if boss.defeated %}card-defeated{% endif %}">
+        {% if boss.image_url %}
+        <div class="bcm-img">
+            <img src="{{ boss.image_url }}" alt="{{ boss.name }}" class="boss-img-3d"
+                 onerror="this.parentElement.innerHTML='<span class=bcm-fallback>⚔</span>'">
+        </div>
+        {% endif %}
+        <div class="bcm-body">
+            <div class="bcm-type">{{ boss.boss_type }}</div>
+            <h3 class="bcm-name">
+                <a href="{{ url_for('boss_detail', boss_id=boss.id) }}">{{ boss.name }}</a>
+                {% if boss.is_randomized %}<span class="rand-tag-sm">🎲</span>{% endif %}
+            </h3>
+            <span class="bcm-region">{{ boss.region }}</span>
+            <div class="bcm-meta">
+                <span class="status-badge {% if boss.defeated %}badge-green{% elif boss.attempts > 1 %}badge-blue{% else %}badge-red{% endif %}">
+                    {% if boss.defeated %}Defeated{% elif boss.attempts > 1 %}In Progress{% else %}Encountered{% endif %}
+                </span>
+                <span class="bcm-attempts">{{ boss.attempts }} attempt{{ 's' if boss.attempts != 1 else '' }}</span>
+            </div>
+            <div class="bcm-actions">
+                <a href="{{ url_for('boss_detail', boss_id=boss.id) }}" class="btn btn-sm btn-ghost">Details</a>
+                <a href="{{ url_for('edit_boss', boss_id=boss.id) }}" class="btn btn-sm btn-ghost">Edit</a>
+                <form method="POST" action="{{ url_for('quick_update', boss_id=boss.id) }}" class="inline-form">
+                    <input type="hidden" name="action" value="toggle_defeated">
+                    <button type="submit" class="btn btn-sm {% if boss.defeated %}btn-green{% else %}btn-ghost{% endif %}">
+                        {% if boss.defeated %}✓ Defeated{% else %}Mark Defeated{% endif %}
+                    </button>
+                </form>
+                <form method="POST" action="{{ url_for('delete_boss', boss_id=boss.id) }}" class="inline-form"
+                      onsubmit="return confirm('Remove {{ boss.name }}?')">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+    <span class="empty-icon">⚔</span>
+    <h3>No bosses found</h3>
+    {% if search or region_filter or status_filter %}
+    <p>No results match your filters.</p>
+    <a href="{{ url_for('boss_list') }}" class="btn btn-ghost">Clear Filters</a>
+    {% else %}
+    <p>Your bestiary is empty.</p>
+    <a href="{{ url_for('add_boss') }}" class="btn btn-primary">Record First Encounter</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live client-side name filter
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+    let debounce;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => {
+            const term = searchInput.value.toLowerCase();
+            document.querySelectorAll('.boss-row, .boss-card-mobile').forEach(row => {
+                const name = row.querySelector('.boss-name-link, .bcm-name a');
+                if (name) row.style.display = name.textContent.toLowerCase().includes(term) ? '' : 'none';
+            });
+        }, 150);
+    });
+}
+</script>
+{% endblock %}

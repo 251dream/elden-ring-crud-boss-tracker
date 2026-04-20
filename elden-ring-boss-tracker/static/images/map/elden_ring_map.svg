@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1200">
+  <defs>
+    <radialGradient id="mapbg" cx="48%" cy="52%" r="65%">
+      <stop offset="0%" stop-color="#1e1608"/>
+      <stop offset="60%" stop-color="#0e0c06"/>
+      <stop offset="100%" stop-color="#060504"/>
+    </radialGradient>
+    <filter id="sb"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="sm"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+
+  <!-- Sky/base -->
+  <rect width="1800" height="1200" fill="url(#mapbg)"/>
+
+  <!-- Region ambient glows -->
+  <ellipse cx="540" cy="680" rx="340" ry="260" fill="#1e1c08" fill-opacity="0.7" filter="url(#sb)"/>
+  <ellipse cx="900" cy="560" rx="320" ry="240" fill="#12101a" fill-opacity="0.6" filter="url(#sb)"/>
+  <ellipse cx="1200" cy="640" rx="360" ry="240" fill="#1a0808" fill-opacity="0.65" filter="url(#sb)"/>
+  <ellipse cx="430" cy="380" rx="200" ry="150" fill="#0a0e1e" fill-opacity="0.7" filter="url(#sb)"/>
+  <ellipse cx="1280" cy="380" rx="250" ry="160" fill="#180820" fill-opacity="0.6" filter="url(#sb)"/>
+  <ellipse cx="580" cy="980" rx="220" ry="160" fill="#081808" fill-opacity="0.6" filter="url(#sb)"/>
+  <ellipse cx="1480" cy="480" rx="180" ry="200" fill="#0e0818" fill-opacity="0.65" filter="url(#sb)"/>
+
+  <!-- Continent coastline outline -->
+  <path d="M300,200 Q420,110 600,145 Q780,85 980,130 Q1160,95 1340,165 Q1500,210 1560,340
+           Q1620,440 1580,580 Q1540,700 1440,790 Q1340,870 1200,880 Q1060,890 940,860
+           Q820,830 700,870 Q560,910 450,840 Q320,760 270,630 Q220,500 250,370 Q265,280 300,200Z"
+        fill="none" stroke="#c9a84c" stroke-opacity="0.1" stroke-width="2.5"/>
+
+  <!-- Limgrave -->
+  <path d="M310,380 Q430,320 600,355 Q700,375 720,490 Q740,600 650,660 Q540,700 410,675 Q290,650 265,560 Q248,470 310,380Z"
+        fill="#201c0c" fill-opacity="0.65" stroke="#c9a84c" stroke-opacity="0.12" stroke-width="1.2"/>
+
+  <!-- Weeping Peninsula -->
+  <path d="M400,670 Q510,640 640,700 Q700,740 680,860 Q640,940 520,955 Q390,960 340,880 Q300,810 330,740 Q360,690 400,670Z"
+        fill="#182010" fill-opacity="0.6" stroke="#c9a84c" stroke-opacity="0.1" stroke-width="1"/>
+
+  <!-- Liurnia of the Lakes -->
+  <path d="M620,200 Q760,145 920,185 Q1020,215 1020,325 Q1018,430 920,475 Q810,510 700,480 Q610,455 595,365 Q582,275 620,200Z"
+        fill="#14121e" fill-opacity="0.65" stroke="#c9a84c" stroke-opacity="0.1" stroke-width="1.2"/>
+
+  <!-- Altus Plateau & Leyndell -->
+  <path d="M750,290 Q900,250 1040,310 Q1120,350 1100,460 Q1078,565 960,600 Q855,625 770,575 Q700,530 710,430 Q720,340 750,290Z"
+        fill="#1e1a10" fill-opacity="0.65" stroke="#c9a84c" stroke-opacity="0.12" stroke-width="1.2"/>
+
+  <!-- Caelid -->
+  <path d="M1050,290 Q1190,245 1340,290 Q1440,325 1450,440 Q1455,545 1360,610 Q1260,665 1130,640 Q1040,620 1020,520 Q1005,420 1050,290Z"
+        fill="#1e0808" fill-opacity="0.65" stroke="#c9a84c" stroke-opacity="0.1" stroke-width="1.2"/>
+
+  <!-- Mountaintops of the Giants -->
+  <path d="M1120,180 Q1260,130 1430,165 Q1570,195 1600,300 Q1630,395 1560,465 Q1480,520 1360,495 Q1250,468 1180,395 Q1120,330 1120,260 Q1118,215 1120,180Z"
+        fill="#14182a" fill-opacity="0.7" stroke="#c9a84c" stroke-opacity="0.1" stroke-width="1.2"/>
+
+  <!-- Haligtree / Miquella -->
+  <path d="M240,145 Q340,100 460,135 Q530,158 540,230 Q548,300 475,340 Q395,370 310,340 Q240,308 225,255 Q215,200 240,145Z"
+        fill="#081820" fill-opacity="0.7" stroke="#c9a84c" stroke-opacity="0.1" stroke-width="1"/>
+
+  <!-- Mohgwyn Palace (underground, shown slightly transparent) -->
+  <path d="M295,470 Q380,445 470,480 Q530,508 525,570 Q518,635 450,655 Q370,668 310,635 Q258,600 260,545 Q262,495 295,470Z"
+        fill="#200814" fill-opacity="0.55" stroke="#c9a84c" stroke-opacity="0.08" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <!-- Crumbling Farum Azula (floating, shown top-right) -->
+  <path d="M1480,200 Q1570,160 1680,200 Q1760,230 1760,310 Q1758,390 1680,420 Q1600,445 1520,410 Q1455,375 1455,305 Q1455,245 1480,200Z"
+        fill="#10082a" fill-opacity="0.7" stroke="#c9a84c" stroke-opacity="0.12" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="1600" y="155" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#c9a84c" fill-opacity="0.4" letter-spacing="2">FLOATING RUINS</text>
+
+  <!-- Roads / Grace paths -->
+  <path d="M540,635 Q640,580 750,560 Q850,540 940,560 Q1020,578 1060,545"
+        fill="none" stroke="#c9a84c" stroke-opacity="0.18" stroke-width="2" stroke-dasharray="7 5"/>
+  <path d="M720,490 Q780,460 860,455 Q930,450 1000,470"
+        fill="none" stroke="#c9a84c" stroke-opacity="0.14" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <path d="M940,475 Q1000,440 1080,420 Q1140,405 1200,430"
+        fill="none" stroke="#c9a84c" stroke-opacity="0.12" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <path d="M400,380 Q460,340 540,340 Q600,340 640,360"
+        fill="none" stroke="#c9a84c" stroke-opacity="0.12" stroke-width="1.5" stroke-dasharray="5 5"/>
+
+  <!-- Erdtree glow (center-ish) -->
+  <ellipse cx="940" cy="545" rx="55" ry="75" fill="#c9a84c" fill-opacity="0.05" filter="url(#sb)"/>
+  <line x1="940" y1="545" x2="940" y2="60" stroke="#ffd700" stroke-opacity="0.07" stroke-width="22" filter="url(#sb)"/>
+  <line x1="940" y1="545" x2="940" y2="60" stroke="#c9a84c" stroke-opacity="0.06" stroke-width="5" filter="url(#sm)"/>
+  <line x1="940" y1="545" x2="940" y2="60" stroke="#ffe47a" stroke-opacity="0.04" stroke-width="2"/>
+
+  <!-- Region labels -->
+  <g font-family="Georgia,serif" fill="#c9a84c" fill-opacity="0.32" text-anchor="middle" letter-spacing="3">
+    <text x="490" y="525" font-size="15">LIMGRAVE</text>
+    <text x="505" y="840" font-size="12">WEEPING PENINSULA</text>
+    <text x="800" y="310" font-size="14">LIURNIA</text>
+    <text x="920" y="440" font-size="13">ALTUS PLATEAU</text>
+    <text x="940" y="560" font-size="11" fill-opacity="0.22">LEYNDELL</text>
+    <text x="1220" y="470" font-size="14">CAELID</text>
+    <text x="1340" y="320" font-size="12">MOUNTAINTOPS</text>
+    <text x="368" y="230" font-size="11">HALIGTREE</text>
+    <text x="385" y="555" font-size="10" fill-opacity="0.22">MOHGWYN</text>
+    <text x="1580" y="310" font-size="11">FARUM AZULA</text>
+    <text x="595" y="175" font-size="10">STORMVEIL</text>
+  </g>
+
+  <!-- Map border -->
+  <rect x="3" y="3" width="1794" height="1194" fill="none" stroke="#c9a84c" stroke-opacity="0.22" stroke-width="2.5"/>
+  <rect x="12" y="12" width="1776" height="1176" fill="none" stroke="#c9a84c" stroke-opacity="0.08" stroke-width="1"/>
+
+  <!-- Corner ornaments -->
+  <g stroke="#c9a84c" stroke-opacity="0.45" stroke-width="2" fill="none">
+    <path d="M3,50 L3,3 L50,3"/><path d="M1750,3 L1797,3 L1797,50"/>
+    <path d="M3,1150 L3,1197 L50,1197"/><path d="M1750,1197 L1797,1197 L1797,1150"/>
+  </g>
+
+  <!-- Title -->
+  <text x="900" y="64" text-anchor="middle" font-family="Georgia,serif" font-size="30" fill="#c9a84c" fill-opacity="0.55" letter-spacing="10" filter="url(#glow)">THE LANDS BETWEEN</text>
+  <line x1="380" y1="78" x2="1420" y2="78" stroke="#c9a84c" stroke-opacity="0.18" stroke-width="1"/>
+
+  <text x="900" y="1170" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#c9a84c" fill-opacity="0.25" letter-spacing="4">
+    REPLACE WITH elden_ring_map.jpg/png FOR AUTHENTIC MAP
+  </text>
+</svg>

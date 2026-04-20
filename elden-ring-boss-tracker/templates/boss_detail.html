@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}{{ boss.name }} — Elden Ring Boss Tracker{% endblock %}
+{% block body_class %}page-scrollable{% endblock %}
+{% block breadcrumb %}
+<a href="{{ url_for('index') }}">Realm</a> <span>›</span>
+<a href="{{ url_for('boss_list') }}">Bestiary</a> <span>›</span>
+<span>{{ boss.name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="detail-page">
+
+    <!-- Action bar -->
+    <div class="detail-actions-bar">
+        <a href="{{ url_for('boss_list') }}" class="btn btn-ghost btn-sm">← Back</a>
+        <div class="detail-action-group">
+            <!-- Toggle defeated quick action -->
+            <form method="POST" action="{{ url_for('quick_update', boss_id=boss.id) }}" class="inline-form">
+                <input type="hidden" name="action" value="toggle_defeated">
+                <button type="submit" class="btn btn-sm {% if boss.defeated %}btn-green{% else %}btn-ghost{% endif %}">
+                    {% if boss.defeated %}✓ Defeated{% else %}Mark Defeated{% endif %}
+                </button>
+            </form>
+            <!-- Increment attempts -->
+            <form method="POST" action="{{ url_for('quick_update', boss_id=boss.id) }}" class="inline-form">
+                <input type="hidden" name="action" value="increment_attempts">
+                <button type="submit" class="btn btn-sm btn-ghost" title="Record another attempt">+1 Attempt</button>
+            </form>
+            <a href="{{ url_for('edit_boss', boss_id=boss.id) }}" class="btn btn-sm btn-primary">✎ Edit</a>
+            <form method="POST" action="{{ url_for('delete_boss', boss_id=boss.id) }}" class="inline-form"
+                  onsubmit="return confirm('Permanently remove {{ boss.name }} from your tracker?')">
+                <button type="submit" class="btn btn-sm btn-danger">✕ Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main layout: portrait + info -->
+    <div class="detail-layout">
+
+        <!-- Portrait with 3D effect -->
+        <div class="detail-portrait-col">
+            <div class="portrait-container">
+                {% if boss.image_url %}
+                <div class="portrait-3d-wrap" id="portrait3d">
+                    <img src="{{ boss.image_url }}"
+                         alt="{{ boss.name }}"
+                         class="portrait-img"
+                         onerror="this.parentElement.classList.add('portrait-no-img'); this.remove();">
+                    <div class="portrait-shine"></div>
+                    <div class="portrait-glow"></div>
+                    <div class="portrait-scanlines"></div>
+                </div>
+                {% else %}
+                <div class="portrait-3d-wrap portrait-no-img">
+                    <span class="portrait-placeholder">⚔</span>
+                </div>
+                {% endif %}
+                <div class="portrait-status-band {% if boss.defeated %}band-defeated{% else %}band-alive{% endif %}">
+                    {% if boss.defeated %}⚔ Defeated{% elif boss.attempts > 1 %}↻ In Progress{% else %}👁 Encountered{% endif %}
+                </div>
+            </div>
+
+            <!-- Mini map -->
+            <div class="detail-mini-map">
+                <div class="mini-map-label">Location</div>
+                <div class="mini-map-wrap">
+                    <img src="https://i.redd.it/xupnh55gf6l81.jpg"
+                         alt="Map" class="mini-map-img"
+                         onerror="this.style.opacity='0.15'">
+                    <div class="mini-marker"
+                         style="left:{{ boss.map_x }}%;top:{{ boss.map_y }}%;">
+                        <span class="mini-dot pulse"></span>
+                        <span class="mini-label">{{ boss.name }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info column -->
+        <div class="detail-info-col">
+            <div class="detail-type-tag">{{ boss.boss_type }}</div>
+            <h1 class="detail-name">{{ boss.name }}</h1>
+            <div class="detail-region">📍 {{ boss.region }}</div>
+
+            {% if boss.is_randomized %}
+            <div class="detail-rand-badge">
+                🎲 Randomized — placed at <strong>{{ boss.randomizer_slot }}</strong>
+            </div>
+            {% endif %}
+
+            <!-- Stats grid -->
+            <div class="detail-stats">
+                <div class="ds-item">
+                    <span class="ds-label">Attempts</span>
+                    <span class="ds-value">{{ boss.attempts }}</span>
+                </div>
+                <div class="ds-item">
+                    <span class="ds-label">Difficulty</span>
+                    <span class="ds-value gold">{{ boss.difficulty_rating }}/10</span>
+                </div>
+                <div class="ds-item">
+                    <span class="ds-label">First Seen</span>
+                    <span class="ds-value">{{ boss.first_encounter_date.strftime('%b %d, %Y') if boss.first_encounter_date else '—' }}</span>
+                </div>
+                <div class="ds-item">
+                    <span class="ds-label">Defeated On</span>
+                    <span class="ds-value">{{ boss.defeated_date.strftime('%b %d, %Y') if boss.defeated_date else '—' }}</span>
+                </div>
+            </div>
+
+            <!-- Difficulty bar -->
+            <div class="detail-diff-row">
+                <span class="diff-label-text">Difficulty</span>
+                <div class="diff-bar-lg">
+                    <div class="diff-fill-lg" data-level="{{ boss.difficulty_rating }}"
+                         style="width:{{ boss.difficulty_rating * 10 }}%"></div>
+                </div>
+                <span class="diff-label-text">{{ boss.difficulty_rating }}/10</span>
+            </div>
+
+            <!-- Weakness block -->
+            {% if boss.player_notes %}
+            <div class="detail-block">
+                <div class="detail-block-title">📝 My Notes</div>
+                <p class="detail-block-text">{{ boss.player_notes }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Reward block -->
+            {% if boss.reward %}
+            <div class="detail-block">
+                <div class="detail-block-title">✦ Reward</div>
+                <p class="detail-block-text">{{ boss.reward }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Map coordinates info -->
+            <div class="detail-block detail-block-coords">
+                <div class="detail-block-title">📌 Map Position</div>
+                <p class="detail-block-text">X: {{ boss.map_x }}% &nbsp;/&nbsp; Y: {{ boss.map_y }}%
+                {% if boss.is_randomized %}
+                    &nbsp;·&nbsp; Randomized slot: <strong>{{ boss.randomizer_slot }}</strong>
+                {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 3D tilt effect on portrait
+const wrap = document.getElementById('portrait3d');
+if (wrap) {
+    wrap.addEventListener('mousemove', e => {
+        const rect = wrap.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        wrap.style.transform = `perspective(800px) rotateY(${x * 18}deg) rotateX(${-y * 14}deg) translateZ(12px)`;
+        wrap.querySelector('.portrait-shine').style.backgroundImage =
+            `radial-gradient(circle at ${(x+0.5)*100}% ${(y+0.5)*100}%, rgba(255,255,255,0.18) 0%, transparent 60%)`;
+    });
+    wrap.addEventListener('mouseleave', () => {
+        wrap.style.transform = '';
+        wrap.querySelector('.portrait-shine').style.backgroundImage = '';
+    });
+}
+</script>
+{% endblock %}

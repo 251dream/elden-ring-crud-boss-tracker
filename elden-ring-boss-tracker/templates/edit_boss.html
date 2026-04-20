@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ boss.name }}{% endblock %}
+{% block body_class %}page-scrollable{% endblock %}
+{% block breadcrumb %}
+<a href="{{ url_for('index') }}">Realm</a> <span>›</span>
+<a href="{{ url_for('boss_list') }}">Bestiary</a> <span>›</span>
+<a href="{{ url_for('boss_detail', boss_id=boss.id) }}">{{ boss.name }}</a> <span>›</span>
+<span>Edit</span>
+{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-page-header">
+    <h1 class="page-title">Edit Encounter</h1>
+    <p class="page-sub">{{ boss.name }}</p>
+  </div>
+
+  <form class="boss-form" method="POST" action="{{ url_for('edit_boss', boss_id=boss.id) }}" novalidate>
+
+    <!-- Randomizer -->
+    <div class="form-section-block randomizer-block">
+      <div class="randomizer-header">
+        <div class="rand-title-row">
+          <span class="rand-icon">🎲</span>
+          <div><div class="rand-title">Randomizer Mode</div>
+          <div class="rand-sub">Boss encountered at a non-default location</div></div>
+        </div>
+        <label class="toggle-label">
+          <input type="checkbox" name="is_randomized" id="isRand" class="toggle-input"
+                 onchange="toggleRand(this.checked)" {% if boss.is_randomized %}checked{% endif %}>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div id="randSlotPicker" style="{% if not boss.is_randomized %}display:none{% endif %}">
+        <label class="form-label" style="margin-top:0.85rem;display:block">Map Slot</label>
+        <select name="randomizer_slot" class="input-field select-field" onchange="onSlotChange(this.value)">
+          <option value="">— Pick location —</option>
+          {% for s in map_slots %}
+          <option value="{{ s.slot }}" {% if boss.randomizer_slot == s.slot %}selected{% endif %}>{{ s.slot }} ({{ s.region }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-two-col">
+      <div class="form-col">
+        <div class="form-section-block">
+          <div class="form-section-title">Identity</div>
+          <div class="form-group">
+            <label class="form-label">Name <span class="req">*</span></label>
+            <input type="text" name="name" class="input-field" required value="{{ boss.name }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Region <span class="req">*</span></label>
+            <input type="text" name="region" id="regionField" class="input-field" required value="{{ boss.region }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Boss Type</label>
+            <select name="boss_type" class="input-field select-field">
+              {% for t in ['Field Boss','Shardbearer','Shardbearer Guardian','Empyrean','Demi-God','Required Boss','Spectral Boss','God','Final Boss','Other'] %}
+              <option value="{{ t }}" {% if boss.boss_type == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Image URL or Path</label>
+            <input type="text" name="image_url" class="input-field" value="{{ boss.image_url }}"
+                   placeholder="/static/images/bosses/name.svg">
+            <span class="form-hint">Local: /static/images/bosses/filename.svg · or https://…</span>
+          </div>
+        </div>
+        <div class="form-section-block">
+          <div class="form-section-title">My Notes</div>
+          <div class="form-group">
+            <label class="form-label">My Notes</label>
+            <textarea name="player_notes" class="input-field textarea-field" rows="3">{{ boss.player_notes }}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reward</label>
+            <input type="text" name="reward" class="input-field" value="{{ boss.reward }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-col">
+        <div class="form-section-block">
+          <div class="form-section-title">Progress</div>
+          <div class="form-group">
+            <label class="form-label">Attempts</label>
+            <input type="number" name="attempts" class="input-field" min="1" value="{{ boss.attempts }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Difficulty (1–10)</label>
+            <div class="slider-row">
+              <input type="range" name="difficulty_rating" id="diffSlider"
+                     min="1" max="10" value="{{ boss.difficulty_rating }}" class="diff-slider"
+                     oninput="document.getElementById('diffVal').textContent=this.value">
+              <span class="diff-val-display" id="diffVal">{{ boss.difficulty_rating }}</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">First Encountered</label>
+            <input type="date" name="first_encounter_date" class="input-field"
+                   value="{{ boss.first_encounter_date.strftime('%Y-%m-%d') if boss.first_encounter_date else '' }}">
+          </div>
+          <div class="form-group form-group-check">
+            <label class="checkbox-label">
+              <input type="checkbox" name="defeated" id="defeatedCb" class="checkbox-input"
+                     {% if boss.defeated %}checked{% endif %}
+                     onchange="toggleDefeated(this.checked)">
+              <span class="checkbox-custom"></span>Boss Defeated
+            </label>
+          </div>
+          <div class="form-group" id="defeatedDateGrp" {% if not boss.defeated %}style="display:none"{% endif %}>
+            <label class="form-label">Defeated On</label>
+            <input type="date" name="defeated_date" class="input-field"
+                   value="{{ boss.defeated_date.strftime('%Y-%m-%d') if boss.defeated_date else '' }}">
+          </div>
+        </div>
+
+        <div class="form-section-block">
+          <div class="form-section-title">Map Position — click or drag to reposition</div>
+          <div class="coords-row">
+            <div class="form-group">
+              <label class="form-label">X %</label>
+              <input type="number" name="map_x" id="mapX" class="input-field"
+                     step="0.1" min="0" max="100" value="{{ boss.map_x }}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Y %</label>
+              <input type="number" name="map_y" id="mapY" class="input-field"
+                     step="0.1" min="0" max="100" value="{{ boss.map_y }}">
+            </div>
+          </div>
+
+          <!-- Zoomable map picker -->
+          <div class="map-picker-wrap">
+            <div class="mp-controls">
+              <button type="button" class="mc-btn" id="mpZoomIn">＋</button>
+              <button type="button" class="mc-btn" id="mpZoomOut">－</button>
+              <button type="button" class="mc-btn" id="mpReset">⊙</button>
+              <span class="mc-hint">Drag to pan · scroll to zoom · click to place marker</span>
+            </div>
+            <div class="map-picker-viewport" id="mpViewport">
+              <div class="map-picker-inner" id="mpInner">
+                <img id="mpImg" class="map-picker-img" alt="Map"
+                     onerror="this.src='/static/images/map/elden_ring_map.svg'">
+                <div class="picker-xhair" id="pxhair"
+                     style="left:{{ boss.map_x }}%;top:{{ boss.map_y }}%;display:block"></div>
+                <!-- Show other bosses as small dots for reference -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <a href="{{ url_for('boss_detail', boss_id=boss.id) }}" class="btn btn-ghost btn-lg">Cancel</a>
+      <form method="POST" action="{{ url_for('delete_boss', boss_id=boss.id) }}" class="inline-form"
+            onsubmit="return confirm('Delete {{ boss.name }}? This cannot be undone.')">
+        <button type="submit" class="btn btn-danger btn-lg">✕ Delete</button>
+      </form>
+      <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const ALL_SLOTS = {{ map_slots | tojson }};
+
+// Load map image
+(function(){
+  const img = document.getElementById('mpImg');
+  const srcs = ['/static/images/map/ER_MAP.jpeg','/static/images/map/ER_MAP.jpg','/static/images/map/elden_ring_map.jpg','/static/images/map/elden_ring_map.png','/static/images/map/elden_ring_map.svg'];
+  let i = 0;
+  function next(){ if(i>=srcs.length) return; img.onerror=()=>{i++;next();}; img.src=srcs[i++]; }
+  next();
+})();
+
+/* Scroll-based map picker: resize image for crisp zoom, native scroll for pan */
+const mpVp  = document.getElementById('mpViewport');
+const mpImg = document.getElementById('mpImg');
+let mpNatW = 0, mpNatH = 0, mpScale = 1.0;
+let mpDragging = false, mpLx = 0, mpLy = 0, mpDidDrag = false;
+
+mpImg.addEventListener('load', function(){
+  mpNatW = this.naturalWidth  || 1800;
+  mpNatH = this.naturalHeight || 1200;
+  mpScale = mpVp.offsetWidth / mpNatW;
+  mpApply();
+});
+
+function mpApply(){
+  const w = Math.round(mpNatW * mpScale);
+  const h = Math.round(mpNatH * mpScale);
+  mpImg.style.width  = w + 'px';
+  mpImg.style.height = h + 'px';
+}
+function mpZoom(f, cx, cy){
+  const minS = (mpVp.offsetWidth / (mpNatW || 1800)) * 0.85;
+  const ns = Math.max(minS, Math.min(6, mpScale * f));
+  const vr = mpVp.getBoundingClientRect();
+  const px = (cx !== undefined ? cx - vr.left : vr.width  / 2);
+  const py = (cy !== undefined ? cy - vr.top  : vr.height / 2);
+  const ratio = ns / mpScale;
+  const imgX = (mpVp.scrollLeft + px) / mpScale;
+  const imgY = (mpVp.scrollTop  + py) / mpScale;
+  mpScale = ns;
+  mpApply();
+  mpVp.scrollLeft = imgX * mpScale - px;
+  mpVp.scrollTop  = imgY * mpScale - py;
+}
+
+/* Drag to pan */
+mpVp.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  mpDragging = true; mpDidDrag = false;
+  mpLx = e.clientX; mpLy = e.clientY;
+  mpVp.style.cursor = 'grabbing';
+  e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+  if (!mpDragging) return;
+  const dx = e.clientX - mpLx, dy = e.clientY - mpLy;
+  if (Math.abs(dx) > 2 || Math.abs(dy) > 2) mpDidDrag = true;
+  mpVp.scrollLeft -= dx; mpVp.scrollTop -= dy;
+  mpLx = e.clientX; mpLy = e.clientY;
+});
+window.addEventListener('mouseup', () => { mpDragging = false; mpVp.style.cursor = 'crosshair'; });
+mpVp.addEventListener('wheel', e => {
+  e.preventDefault();
+  mpZoom(e.deltaY < 0 ? 1.14 : 0.88, e.clientX, e.clientY);
+}, { passive: false });
+
+document.getElementById('mpZoomIn').onclick  = e => { e.preventDefault(); mpZoom(1.25); };
+document.getElementById('mpZoomOut').onclick = e => { e.preventDefault(); mpZoom(0.8); };
+document.getElementById('mpReset').onclick   = e => {
+  e.preventDefault();
+  mpScale = mpVp.offsetWidth / (mpNatW || 1800);
+  mpApply(); mpVp.scrollLeft = 0; mpVp.scrollTop = 0;
+};
+
+/* Click to place crosshair marker */
+mpImg.addEventListener('click', e => {
+  if (mpDidDrag) { mpDidDrag = false; return; }
+  const rect = mpImg.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / mpImg.offsetWidth  * 100).toFixed(1);
+  const y = ((e.clientY - rect.top)  / mpImg.offsetHeight * 100).toFixed(1);
+  document.getElementById('mapX').value = x;
+  document.getElementById('mapY').value = y;
+  const xh = document.getElementById('pxhair');
+  xh.style.left = x + '%'; xh.style.top = y + '%'; xh.style.display = 'block';
+});
+
+function toggleRand(on){
+  document.getElementById('randSlotPicker').style.display = on?'block':'none';
+}
+function onSlotChange(v){
+  const s = ALL_SLOTS.find(x=>x.slot===v);
+  if(s){
+    document.getElementById('mapX').value = s.map_x;
+    document.getElementById('mapY').value = s.map_y;
+    document.getElementById('regionField').value = s.region;
+    const xh=document.getElementById('pxhair');
+    xh.style.left=s.map_x+'%'; xh.style.top=s.map_y+'%'; xh.style.display='block';
+  }
+}
+function toggleDefeated(on){
+  document.getElementById('defeatedDateGrp').style.display = on?'block':'none';
+}
+</script>
+{% endblock %}
