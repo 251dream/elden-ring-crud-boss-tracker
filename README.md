@@ -94,10 +94,10 @@ elden-ring-boss-tracker/
 │   │   └── app.js                  # Sidebar toggle, animations, legend positioning
 │   └── images/
 │       ├── map/
-│       │   └── ER_MAP.jpeg         # World map image (replace with your own)
+│       │   └── ER_MAP.jpeg         # World map images
 │       └── bosses/
-│           ├── margit.svg          # Boss portrait placeholders (replace with real images)
-│           ├── godrick.svg
+│           ├── margit.png          # Boss portraits
+│           ├── godrick.png
 │           └── ... (13 total)
 │
 └── instance/
